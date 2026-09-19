@@ -1,89 +1,59 @@
-# FarmGuard AI — Python Sensor Dashboard
+# FarmGuard AI — ESP32 Farm Decision System
 
-FarmGuard AI is a decision-first smart agriculture dashboard for the **Save The Farm!** hackathon track. It does more than show sensor charts: it verifies telemetry, calculates risk, ranks the most urgent zone, recommends an action, activates irrigation and confirms recovery.
+FarmGuard AI turns three inexpensive components into one intelligent farm decision
+system instead of simply displaying sensor readings:
 
-## What is included
+- **HC-SR04 ultrasonic sensor** → tank/trough/feed level or perimeter proximity
+- **Photoresistor (LDR)** → light percentage, day/night context, abnormal lighting
+- **Passive buzzer** → physical `OFF`, `PULSE`, or `ALARM` output
 
-- Command centre with farm health, critical zones, trusted devices and water reserve
-- Three monitored zones with soil moisture, temperature, humidity and light
-- Deterministic health/risk engine: `HEALTHY`, `WATCH`, `WARNING`, `CRITICAL` and `VERIFY`
-- Grounded advisor that explains only the verified farm state
-- Manual irrigation approval and closed-loop recovery verification
-- Device registry, token checks and anomaly isolation
-- Evidence timeline for detections, actions, blocked packets and recovery
-- Offline-safe simulator for a reliable 90-second demo
-- FastAPI telemetry endpoint for ESP32 or Raspberry Pi integration
-- Dependency-free Python sensor client for Raspberry Pi, serial gateways, or test data
-- Live-reading protection so the demo simulator never overwrites recently received sensor data
-- Read-only state and device-discovery APIs for integrations
+This version uses FastAPI and a purpose-built responsive web interface. It contains
+**no Streamlit and no Gradio**.
 
-## Quick start on Windows
+## Two dashboards for two audiences
 
-Open PowerShell inside this folder:
+### Farm Owner Dashboard — `/`
 
-```powershell
-py -m venv .venv
-.\.venv\Scripts\Activate.ps1
-py -m pip install -r requirements.txt
-py app.py
-```
+Designed for quick decisions, not configuration:
 
-Open [http://127.0.0.1:7860](http://127.0.0.1:7860).
+- 0–100 Farm Health Score
+- One clear status: Good, Watch, or Action
+- Plain-language recommended actions
+- Water/feed level, light, movement, and buzzer cards
+- Live trend chart
+- Important event timeline
+- Mobile and sunlight-readable layout
 
-Check the server from another terminal:
+### Integrator Console — `/integrator`
 
-```powershell
-Invoke-RestMethod http://127.0.0.1:7860/health
-```
+Designed for the developer installing and testing hardware:
 
-## Connect a Python-capable sensor or Raspberry Pi
+- ESP32 connection and freshness status
+- Telemetry endpoint, device ID, and token
+- Copyable JSON payload
+- Wiring reference
+- Raw distance, ADC, sequence, latency, and packet diagnostics
+- Installation profile and threshold calibration
+- Six simulation scenarios
+- Remote buzzer tests
+- Raw telemetry and security/event logs
+- CSV exports and interactive API documentation
 
-First start `app.py`. Then verify the full connection with the included client:
-
-```powershell
-python sensor_client.py --once
-```
-
-For a sensor computer on the same network, point it at the dashboard computer:
+## Run on Windows
 
 ```powershell
-python sensor_client.py `
-  --server http://192.168.1.100:7860 `
-  --device-id esp32-field-01 `
-  --token farmguard-demo-01 `
-  --zone-id zone-a
+git clone https://github.com/harrishshan-design/farmguard-ai.git
+cd farmguard-ai
+.\start_farmguard.ps1
 ```
 
-To connect physical hardware, open `sensor_client.py` and replace only the body of
-`read_sensors()` with your GPIO, I2C, ADC, or serial library calls. It must return:
+Open:
 
-```python
-return {
-    "moisture": soil_moisture_percent,
-    "temperature": temperature_celsius,
-    "humidity": relative_humidity_percent,
-    "light": light_percent,
-}
-```
+- Farm owner: <http://127.0.0.1:7860>
+- Integrator: <http://127.0.0.1:7860/integrator>
+- API reference: <http://127.0.0.1:7860/api/docs>
 
-You can also import `send_reading()` into an existing Python sensor program. Values
-are validated by the server, and accepted live readings take priority over the demo
-simulation for 30 seconds. Change this window with the
-`FARMGUARD_LIVE_HOLD_SECONDS` environment variable.
-
-## Connect an ESP32
-
-Open `esp32_example.ino` in Arduino IDE, set `WIFI_SSID`, `WIFI_PASSWORD`, and
-`SERVER_URL`, then replace the four demo numbers in `loop()` with your sensor reads.
-The computer and ESP32 must be reachable on the same network.
-
-If PowerShell blocks activation, use:
-
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-```
-
-## Quick start on macOS/Linux/Raspberry Pi
+## Run on macOS/Linux
 
 ```bash
 python3 -m venv .venv
@@ -92,88 +62,136 @@ python3 -m pip install -r requirements.txt
 python3 app.py
 ```
 
-## 90-second demo flow
+## ESP32 wiring
 
-1. Open **Command Centre** and explain the health score, zones and trusted devices.
-2. Open **Demo Controls**, select a zone and click **Simulate dry soil**.
-3. Return to **Command Centre**. Show the critical state, reasons and priority action.
-4. Click **Approve irrigation** in Demo Controls.
-5. Watch soil moisture rise automatically.
-6. Show the event timeline when FarmGuard records **Recovery verified** and stops irrigation.
-7. Click **Test untrusted device** to demonstrate that invalid telemetry is blocked.
+The included `esp32_example.ino` uses:
 
-## Send real ESP32/Raspberry Pi data
+| Hardware | ESP32 pin |
+|---|---:|
+| HC-SR04 trigger | GPIO 5 |
+| HC-SR04 echo | GPIO 18 through a voltage divider |
+| Photoresistor analog output | GPIO 34 |
+| Passive piezo buzzer | GPIO 25 |
+| Common ground | GND |
 
-The dashboard exposes:
+Important electrical notes:
 
-```text
-POST http://YOUR_COMPUTER_IP:7860/api/telemetry
+- ESP32 GPIO is **3.3 V only**. A common HC-SR04 echo signal is 5 V; add a voltage
+  divider or level shifter before GPIO 18.
+- Use a photoresistor voltage divider or analog module. GPIO 34 is input-only and
+  supports ADC readings.
+- The firmware generates tone frequencies for a passive buzzer. Verify its current
+  requirement; use a transistor driver if the buzzer exceeds safe GPIO current.
+- Do not connect pumps, sirens, or high-current loads directly to an ESP32 pin.
+
+## Upload the ESP32 firmware
+
+1. Open `esp32_example.ino` in Arduino IDE.
+2. Install the **ArduinoJson** library from Library Manager.
+3. Set `WIFI_SSID` and `WIFI_PASSWORD`.
+4. Replace the IP in `SERVER_URL` with the dashboard computer's LAN address.
+5. Keep the device ID and token equal to those shown in the Integrator Console.
+6. Select your ESP32 board and upload.
+7. Open Serial Monitor at `115200` baud.
+
+The ESP32 posts every two seconds and receives the buzzer command in the same API
+response. If the server is unreachable for 12 seconds, the firmware fails safe by
+activating the local alarm pattern.
+
+## Installation profiles
+
+One ultrasonic sensor should have one real installation purpose:
+
+- **Level** — distance becomes remaining tank, trough, or feed-bin percentage.
+- **Perimeter** — close distance becomes animal/person proximity risk.
+- **Combined demo** — demonstrates both interpretations for a hackathon judge.
+
+The Integrator Console changes this profile without changing the farm-owner interface.
+
+## Telemetry contract
+
+```http
+POST /api/v1/telemetry
 Content-Type: application/json
 ```
 
-Example payload:
-
 ```json
 {
-  "device_id": "esp32-field-01",
-  "token": "farmguard-demo-01",
-  "zone_id": "zone-a",
-  "moisture": 31.5,
-  "temperature": 32.1,
-  "humidity": 59.0,
-  "light": 76.0
+  "device_id": "esp32-farm-01",
+  "token": "farmguard-device-01",
+  "sequence": 1,
+  "distance_cm": 45.2,
+  "light_raw": 2580
 }
 ```
 
-Registered demo credentials:
+The response contains the verified decision and the physical buzzer command:
 
-| Zone | Device ID | Token |
-|---|---|---|
-| Zone A | `esp32-field-01` | `farmguard-demo-01` |
-| Zone B | `esp32-field-02` | `farmguard-demo-02` |
-| Nursery | `esp32-nursery-01` | `farmguard-demo-03` |
-
-Use your computer's LAN/static IP when the sensor is on the same Wi-Fi network. Allow TCP port `7860` through the firewall. Replace the demo tokens before any real deployment.
-
-Useful read-only endpoints:
-
-- `GET /health` — service health
-- `GET /api/devices` — registered device IDs, zones, and last-seen values (tokens omitted)
-- `GET /api/state` — current sensor values, decisions, water reserve, and actuator state
-
-## Decision logic
-
-The core decision path does not depend on an internet AI service:
-
-```text
-sensor -> identity/range validation -> risk engine -> priority -> action -> recovery check
+```json
+{
+  "accepted": true,
+  "buzzer_mode": "OFF",
+  "sample_interval_ms": 2000,
+  "decision": {
+    "health_score": 100,
+    "status": "GOOD"
+  }
+}
 ```
 
-Examples:
+Sequence numbers must increase. Invalid tokens and replayed packets are rejected and
+recorded in the evidence log.
 
-- Soil moisture below 20%: +45 risk
-- Temperature above 34°C: +22 risk
-- Humidity below 40%: +12 risk
-- Rapid moisture drop: +18 risk
-- Suspicious jump: isolate reading and hold automation
+## Simulation and offline behavior
 
-The advisor translates that structured state into plain language. The sensor result and status remain deterministic.
+The application starts in simulation mode so the complete demonstration works without
+hardware. A valid ESP32 packet automatically takes control and disables simulation.
 
-## Production upgrades after the hackathon
+Available scenarios:
 
-- Store readings and events in PostgreSQL/Supabase
-- Use MQTT with TLS instead of direct HTTP for many field devices
-- Hash/rotate device secrets and add replay protection with timestamps/nonces
-- Drive a relay/pump through a separate safe actuator service
-- Add crop-specific policies calibrated with an agriculture expert
-- Add Telegram alerts and weather forecasts without putting them in the critical control path
+- Healthy farm
+- Low tank/feed level
+- Animal or intruder nearby
+- Unexpected daytime darkness
+- Unexpected night lighting
+- Critical combined risk
 
-## Safety note
+If hardware telemetry stops, the dashboards mark the ESP32 offline after 12 seconds
+and recommend checking power, Wi-Fi, and the server address.
 
-The included actuator is a software simulation. For a real pump, use a properly rated relay, independent electrical protection, a maximum run-time cutoff and manual override. Do not power a pump directly from an ESP32 GPIO pin.
+## Configuration and security
 
-## Run the automated checks
+For a private LAN demonstration, the default token is `farmguard-device-01`. Change it
+before real deployment:
 
-```bash
+```powershell
+$env:FARMGUARD_DEVICE_TOKEN = "a-long-random-secret"
+python app.py
+```
+
+Update the firmware token to match. The Integrator Console intentionally displays the
+token for commissioning, so do not expose this prototype directly to the public
+internet. Put production deployments behind authentication and TLS.
+
+## Data and tests
+
+Telemetry and events are stored locally in `farmguard.db` using SQLite. CSV exports are
+available from the Integrator Console.
+
+```powershell
 python -m unittest discover -s tests -v
+```
+
+## Project structure
+
+```text
+app.py                 FastAPI gateway, SQLite history, API, and page routes
+farmguard_engine.py    Tested sensor-fusion and buzzer decision policy
+web/index.html         Simple farm-owner dashboard
+web/integrator.html    Advanced installer/developer console
+web/styles.css         Responsive field-instrument visual system
+web/owner.js           Owner dashboard live-data rendering
+web/integrator.js      Calibration, test, and diagnostics interactions
+esp32_example.ino      Complete ESP32 sensor and passive-buzzer firmware
+tests/                 Decision-engine and API checks
 ```

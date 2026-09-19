@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#07100d">
+  <meta name="description" content="FarmGuard AI ESP32 integrator console"><title>FarmGuard AI · Integrator Console</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%2364ee9d'/%3E%3Cpath d='M32 51V26M32 32c-9-1-15-7-16-17 10 0 16 6 16 17Zm0 7c8-1 14-6 16-15-9 0-15 5-16 15Z' fill='none' stroke='%2303210f' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body data-severity="healthy">
+  <main class="shell integrator-shell">
+    <header class="topbar">
+      <a class="brand" href="/integrator"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M16 27V13M16 17C10 17 6 13 6 7c6 0 10 4 10 10Zm0 5c6 0 10-4 10-10-6 0-10 4-10 10Z" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="brand-copy"><strong>FarmGuard AI</strong><span>ESP32 Integrator Console</span></span></a>
+      <div class="top-actions"><div id="dev-connection-pill" class="connection-pill"><span class="status-dot"></span><span id="dev-connection-text">Checking gateway</span></div><a class="icon-link" href="/"><span aria-hidden="true">↗</span><span class="label-text">Farm owner view</span></a></div>
+    </header>
+
+    <div class="dev-layout">
+      <nav class="panel dev-nav" aria-label="Integrator sections">
+        <div class="dev-nav-title">Console</div>
+        <a class="active" href="#overview"><span class="nav-symbol">◉</span>Overview</a>
+        <a href="#connect"><span class="nav-symbol">⌁</span>Connect ESP32</a>
+        <a href="#calibration"><span class="nav-symbol">⌖</span>Calibration</a>
+        <a href="#testing"><span class="nav-symbol">◌</span>Hardware tests</a>
+        <a href="#telemetry"><span class="nav-symbol">≋</span>Telemetry</a>
+        <a href="/api/docs" target="_blank"><span class="nav-symbol">{ }</span>API docs</a>
+      </nav>
+
+      <section class="dev-content">
+        <article id="overview" class="panel dev-hero">
+          <div><span class="eyebrow">Node commissioning workspace</span><h1>Hardware control surface</h1><p>Connect, calibrate, test, and diagnose one ESP32 farm node without touching the owner experience.</p></div>
+          <div class="signal-cluster"><div class="signal-stat"><strong id="latency-value">—</strong><span>API latency</span></div><div class="signal-stat"><strong id="uptime-value">—</strong><span>Gateway uptime</span></div><div class="signal-stat"><strong id="packet-value">0</strong><span>Rejected packets</span></div></div>
+        </article>
+
+        <div class="metric-strip">
+          <div class="mini-metric"><span>Distance</span><strong id="raw-distance">—</strong></div><div class="mini-metric"><span>LDR raw</span><strong id="raw-light">—</strong></div><div class="mini-metric"><span>Health</span><strong id="raw-health">—</strong></div><div class="mini-metric"><span>Buzzer command</span><strong id="raw-buzzer">—</strong></div><div class="mini-metric"><span>Sequence</span><strong id="raw-sequence">—</strong></div>
+        </div>
+
+        <div class="dev-grid">
+          <article id="connect" class="panel panel-pad span-7">
+            <div class="section-head"><div><h2>Connect the ESP32</h2><p>Copy these values into the included firmware, then upload it from Arduino IDE.</p></div><span id="trust-chip" class="chip">Waiting for device</span></div>
+            <div class="form-grid"><div class="field"><label>Telemetry endpoint</label><input id="endpoint-value" readonly></div><div class="field"><label>Device ID</label><input id="device-id-value" readonly></div><div class="field full"><label>Device token</label><input id="token-value" readonly></div></div>
+            <div class="button-row"><button class="button primary" data-copy="endpoint-value">Copy endpoint</button><button class="button" data-copy="device-id-value">Copy device ID</button><button class="button" data-copy="token-value">Copy token</button></div>
+            <div class="section-head" style="margin-top:24px"><div><h3>Expected JSON payload</h3></div></div>
+            <div class="code-block"><button class="button small copy-button" data-copy="payload-code">Copy</button><code id="payload-code">{"device_id":"esp32-farm-01","token":"...","sequence":1,"distance_cm":45.2,"light_raw":2580}</code></div>
+          </article>
+
+          <article class="panel panel-pad span-5">
+            <div class="section-head"><div><h2>Recommended wiring</h2><p>Defaults used by the supplied ESP32 firmware</p></div></div>
+            <div class="wiring"><div class="wire"><span>HC-SR04 trigger</span><strong>GPIO 5</strong></div><div class="wire"><span>HC-SR04 echo</span><strong>GPIO 18*</strong></div><div class="wire"><span>LDR analog</span><strong>GPIO 34</strong></div><div class="wire"><span>Passive buzzer</span><strong>GPIO 25</strong></div><div class="wire"><span>Sensor power</span><strong>5V / 3V3</strong></div><div class="wire"><span>Common ground</span><strong>GND</strong></div></div>
+            <p class="fg-muted" style="font-size:.76rem;line-height:1.5;margin:14px 0 0">* Use a voltage divider on a 5 V HC-SR04 echo line before connecting it to the 3.3 V ESP32 input.</p>
+          </article>
+
+          <article id="calibration" class="panel panel-pad span-6">
+            <div class="section-head"><div><h2>Sensor interpretation</h2><p>Choose how the installed ultrasonic sensor should affect risk.</p></div><span class="chip">Saved live</span></div>
+            <form id="config-form" class="form-grid">
+              <div class="field full"><label for="profile-input">Installation profile</label><select id="profile-input"><option value="level">Tank / trough / feed level</option><option value="perimeter">Perimeter / animal proximity</option><option value="combined">Combined demo only</option></select></div>
+              <div class="field"><label for="mount-input">Mount height (cm)</label><input id="mount-input" type="number" min="20" max="500" step="1"></div>
+              <div class="field"><label for="invert-input">LDR direction</label><select id="invert-input"><option value="false">Higher raw = brighter</option><option value="true">Lower raw = brighter</option></select></div>
+              <div class="field"><label for="level-warning-input">Level warning (%)</label><input id="level-warning-input" type="number" min="5" max="90"></div>
+              <div class="field"><label for="level-critical-input">Level critical (%)</label><input id="level-critical-input" type="number" min="1" max="80"></div>
+              <div class="field"><label for="near-warning-input">Proximity warning (cm)</label><input id="near-warning-input" type="number" min="5" max="200"></div>
+              <div class="field"><label for="near-critical-input">Proximity critical (cm)</label><input id="near-critical-input" type="number" min="2" max="100"></div>
+              <div class="field full"><button class="button primary" type="submit">Apply calibration</button></div>
+            </form>
+          </article>
+
+          <article id="testing" class="panel panel-pad span-6">
+            <div class="section-head"><div><h2>Bench test</h2><p>Use simulation before wiring, then send temporary buzzer commands to a connected ESP32.</p></div></div>
+            <div class="field"><label for="scenario-input">Simulation scenario</label><select id="scenario-input"><option value="healthy">Healthy farm</option><option value="low-level">Low tank / feed level</option><option value="intrusion">Animal or intruder nearby</option><option value="darkness">Unexpected daytime darkness</option><option value="night-light">Unexpected night lighting</option><option value="multi-risk">Critical combined risk</option></select></div>
+            <div class="switch-row"><div class="switch-copy"><strong>Simulation source</strong><span>Automatically turns off when valid ESP32 telemetry arrives</span></div><button id="simulation-toggle" class="toggle on" aria-label="Toggle simulation" aria-pressed="true"></button></div>
+            <div class="button-row"><button class="button" data-buzzer="OFF">Buzzer off</button><button class="button warning" data-buzzer="PULSE">Test pulse</button><button class="button danger" data-buzzer="ALARM">Test alarm</button></div>
+          </article>
+
+          <article id="telemetry" class="panel panel-pad span-8">
+            <div class="section-head"><div><h2>Raw telemetry stream</h2><p>Newest accepted readings from SQLite</p></div><a class="button small" href="/api/v1/export/readings.csv">Export CSV</a></div>
+            <div class="table-wrap"><table class="data-table"><thead><tr><th>Time</th><th>Source</th><th>Distance</th><th>LDR raw</th><th>Level</th><th>Light</th><th>Health</th><th>Buzzer</th></tr></thead><tbody id="telemetry-body"></tbody></table></div>
+          </article>
+          <article class="panel panel-pad span-4">
+            <div class="section-head"><div><h2>Evidence log</h2><p>State changes and security events</p></div><a class="button small" href="/api/v1/export/events.csv">CSV</a></div><div id="integrator-events" class="event-list"></div>
+          </article>
+        </div>
+      </section>
+    </div>
+  </main>
+  <div id="toast" class="toast">Saved</div>
+  <script src="/static/integrator.js" defer></script>
+</body>
+</html>

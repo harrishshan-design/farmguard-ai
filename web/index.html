@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07100d">
+  <meta name="description" content="FarmGuard AI farm-owner monitoring dashboard">
+  <title>FarmGuard AI · Farm Overview</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%2364ee9d'/%3E%3Cpath d='M32 51V26M32 32c-9-1-15-7-16-17 10 0 16 6 16 17Zm0 7c8-1 14-6 16-15-9 0-15 5-16 15Z' fill='none' stroke='%2303210f' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body data-severity="healthy">
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="FarmGuard AI home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" fill="none"><path d="M16 27V13M16 17C10 17 6 13 6 7c6 0 10 4 10 10Zm0 5c6 0 10-4 10-10-6 0-10 4-10 10Z" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        <span class="brand-copy"><strong>FarmGuard AI</strong><span id="farm-zone">North Field · Main Farm Node</span></span>
+      </a>
+      <div class="top-actions">
+        <div id="connection-pill" class="connection-pill"><span class="status-dot"></span><span id="connection-text">Checking sensor</span></div>
+        <a class="icon-link" href="/integrator" aria-label="Open integrator console"><span aria-hidden="true">⚙</span><span class="label-text">Integrator</span></a>
+      </div>
+    </header>
+
+    <section class="owner-grid" aria-live="polite">
+      <article class="panel hero-panel">
+        <div id="health-ring" class="health-ring" style="--score:100">
+          <div class="health-number"><strong id="health-score">100</strong><span>Farm health</span></div>
+        </div>
+        <div class="hero-copy">
+          <span id="status-chip" class="eyebrow">Farm is good</span>
+          <h1 id="status-title">Everything looks healthy.</h1>
+          <p id="status-summary">FarmGuard is checking water or feed level, surrounding movement, daylight conditions, and the local warning buzzer.</p>
+          <ul id="reason-list" class="reason-list"><li>All monitored conditions are inside the configured safe range</li></ul>
+        </div>
+      </article>
+
+      <aside class="panel action-panel">
+        <div>
+          <div id="action-icon" class="action-icon">✓</div>
+          <h2 id="action-title">No action needed</h2>
+          <p id="action-copy">You can continue normal farm work. FarmGuard will alert you when something changes.</p>
+        </div>
+        <ol id="action-steps" class="action-steps"><li>No action is needed. FarmGuard will keep watching.</li></ol>
+      </aside>
+
+      <div class="sensor-grid">
+        <article class="panel sensor-card">
+          <div class="label">Water / feed level</div><div id="level-value" class="value">55%</div><div class="caption">Estimated from ultrasonic mounting height</div>
+          <div class="tank" aria-hidden="true"><div id="tank-fill" class="tank-fill" style="height:55%"></div></div>
+        </article>
+        <article class="panel sensor-card">
+          <div class="label">Ambient light</div><div id="light-value" class="value">63%</div><div id="light-caption" class="caption">Normal daylight conditions</div><div class="light-orb" aria-hidden="true"></div>
+        </article>
+        <article class="panel sensor-card">
+          <div class="label">Nearby movement</div><div id="proximity-value" class="value">63%</div><div id="proximity-caption" class="caption">Proximity signal, interpreted by installation mode</div>
+          <div class="radar" aria-hidden="true"><div id="radar-dot" class="radar-dot" style="--risk:63"></div></div>
+        </article>
+        <article class="panel sensor-card">
+          <div class="label">Local farm alarm</div><div id="buzzer-value" class="value">OFF</div><div id="buzzer-caption" class="caption">Silent — no warning needed</div>
+          <div id="buzzer-wave" class="buzzer-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        </article>
+      </div>
+
+      <div class="owner-lower">
+        <article class="panel chart-panel">
+          <div class="section-head"><div><h2>Farm trend</h2><p>Health, level, and light over recent readings</p></div><span id="source-chip" class="chip">Simulation</span></div>
+          <div class="chart-wrap"><canvas id="trend-chart" aria-label="Farm health trend chart"></canvas></div>
+        </article>
+        <article class="panel timeline">
+          <div class="section-head"><div><h2>What happened</h2><p>Important changes only</p></div></div>
+          <div id="event-list" class="event-list"><div class="event"><div class="event-dot"></div><div><strong>Starting FarmGuard</strong><span>Waiting for current readings</span></div></div></div>
+        </article>
+      </div>
+    </section>
+  </main>
+  <div id="offline-toast" class="toast">Connection lost. Retrying…</div>
+  <script src="/static/owner.js" defer></script>
+</body>
+</html>

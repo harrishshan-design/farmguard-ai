@@ -1,84 +1,53 @@
+import math
 import sys
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app import FarmEngine, Telemetry  # noqa: E402
+from farmguard_engine import DeviceConfig, SensorReading, evaluate, simulated_reading  # noqa: E402
 
 
-class FarmEngineTests(unittest.TestCase):
-    def setUp(self):
-        self.engine = FarmEngine()
+NOW = datetime(2026, 9, 19, 4, 0, tzinfo=timezone.utc)
 
-    def test_drought_becomes_critical(self):
-        self.engine.simulate_drought("zone-a")
-        result = self.engine.snapshot()["evaluations"]["zone-a"]
-        self.assertEqual(result["status"], "CRITICAL")
-        self.assertGreaterEqual(result["risk"], 60)
 
-    def test_irrigation_closes_the_recovery_loop(self):
-        self.engine.simulate_drought("zone-a")
-        self.engine.approve_irrigation("zone-a")
-        for _ in range(8):
-            self.engine.tick()
-        snapshot = self.engine.snapshot()
-        self.assertIsNone(snapshot["irrigating_zone"])
-        self.assertGreaterEqual(snapshot["zones"]["zone-a"]["moisture"], 42)
-        self.assertTrue(any(event["Event"] == "Recovery verified" for event in snapshot["events"]))
+class SensorFusionTests(unittest.TestCase):
+    def decision(self, distance=45, light=2580, profile="level", daylight=True):
+        config = DeviceConfig(profile=profile)
+        reading = SensorReading(distance, light, 1, "test", NOW)
+        return evaluate(reading, config, daylight)
 
-    def test_untrusted_device_is_rejected(self):
-        packet = Telemetry(
-            device_id="rogue-device",
-            token="invalid-token",
-            zone_id="zone-a",
-            moisture=20,
-            temperature=30,
-            humidity=60,
-            light=70,
-        )
+    def test_healthy_reading_is_silent(self):
+        result = self.decision()
+        self.assertEqual(result["health_score"], 100)
+        self.assertEqual(result["buzzer_mode"], "OFF")
+
+    def test_critical_level_alarms(self):
+        result = self.decision(distance=94)
+        self.assertEqual(result["status"], "ACTION")
+        self.assertEqual(result["buzzer_mode"], "ALARM")
+
+    def test_close_object_only_affects_perimeter_installation(self):
+        self.assertEqual(self.decision(distance=10, profile="level")["status"], "GOOD")
+        self.assertEqual(self.decision(distance=10, profile="perimeter")["status"], "ACTION")
+
+    def test_dark_day_and_bright_night_pulse(self):
+        self.assertEqual(self.decision(light=100, daylight=True)["buzzer_mode"], "PULSE")
+        self.assertEqual(self.decision(light=4000, daylight=False)["buzzer_mode"], "PULSE")
+
+    def test_invalid_sensor_values_are_rejected(self):
         with self.assertRaises(ValueError):
-            self.engine.ingest(packet)
-        self.assertEqual(self.engine.snapshot()["rejected_packets"], 1)
+            self.decision(distance=math.nan)
+        with self.assertRaises(ValueError):
+            self.decision(light=5000)
 
-    def test_trusted_device_updates_zone(self):
-        packet = Telemetry(
-            device_id="esp32-field-01",
-            token="farmguard-demo-01",
-            zone_id="zone-a",
-            moisture=42,
-            temperature=30,
-            humidity=65,
-            light=70,
-        )
-        response = self.engine.ingest(packet)
-        self.assertTrue(response["accepted"])
-        self.assertEqual(self.engine.snapshot()["zones"]["zone-a"]["moisture"], 42)
-
-    def test_demo_tick_does_not_overwrite_recent_live_reading(self):
-        packet = Telemetry(
-            device_id="esp32-field-01",
-            token="farmguard-demo-01",
-            zone_id="zone-a",
-            moisture=42,
-            temperature=30,
-            humidity=65,
-            light=70,
-        )
-        self.engine.ingest(packet)
-        self.engine.tick()
-        zone = self.engine.snapshot()["zones"]["zone-a"]
-        self.assertEqual(zone["moisture"], 42)
-        self.assertEqual(zone["source"], "sensor")
-
-    def test_device_token_is_not_exposed_in_snapshot_copy_mutation(self):
-        snapshot = self.engine.snapshot()
-        snapshot["devices"]["esp32-field-01"]["token"] = "changed"
-        self.assertEqual(
-            self.engine.snapshot()["devices"]["esp32-field-01"]["token"],
-            "farmguard-demo-01",
-        )
+    def test_demo_data_is_repeatable(self):
+        config = DeviceConfig()
+        first = simulated_reading("healthy", config, 4, NOW)
+        second = simulated_reading("healthy", config, 4, NOW)
+        self.assertEqual(first, second)
 
 
 if __name__ == "__main__":
