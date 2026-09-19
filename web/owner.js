@@ -11,21 +11,22 @@ function renderState(state) {
   document.body.dataset.severity = i.priority === "CRITICAL" ? "critical" : i.priority === "WARNING" ? "warning" : "healthy";
   text("farm-zone", `${state.device.zone} · ${state.device.name}`);
   const pill = $("connection-pill"), hardware = state.device.connected, mqtt = state.mqtt || {}, mqttState = mqtt.sensor_state;
-  const linkState = state.challenge?.active ? "challenge" : mqtt.enabled ? mqttState : hardware ? "LIVE" : state.simulation.enabled ? "SIM" : "OFFLINE";
-  pill.className = `connection-pill ${linkState === "LIVE" ? "online" : linkState === "OFFLINE" ? "offline" : ""}`;
+  const linkState = state.challenge?.active ? "challenge" : mqtt.enabled ? mqttState : hardware ? "ONLINE" : state.simulation.enabled ? "SIM" : "OFFLINE";
+  pill.className = `connection-pill ${linkState === "ONLINE" ? "online" : linkState === "OFFLINE" ? "offline" : ""}`;
   text("connection-text", state.challenge?.active ? "Challenge active" : mqtt.enabled ? `ESP32 ${mqttState || "OFFLINE"}` : hardware ? "ESP32 live" : state.simulation.enabled ? "Demo mode" : "Sensor offline");
-  $("health-ring").style.setProperty("--score", clamp(d.health_score, 0, 100)); text("health-score", d.health_score);
+  $("health-ring").style.setProperty("--score", d.health_score == null ? 0 : clamp(d.health_score, 0, 100)); text("health-score", d.health_score == null ? "—" : d.health_score);
   const health = i.priority;
   const copy = {
     NORMAL:["Farm health · NORMAL","Everything looks healthy.","No action needed","✓","All available readings are inside the configured safe ranges."],
     WARNING:["Farm health · WARNING","One condition needs watching.","Check during your next round","!","One or more farm conditions are moving outside their safe range."],
     CRITICAL:["Farm health · CRITICAL","Please check the farm now.","Immediate check recommended","⚠","FarmGuard detected serious risk or lost contact with the ESP32."],
+    WAITING:["Farm health · WAITING","Waiting for sensor data.","Check the live connection","…","No valid MQTT sensor reading has arrived yet."],
   }[health];
   text("status-chip",copy[0]); text("status-title",copy[1]); text("action-title",copy[2]); text("action-icon",copy[3]); text("action-copy",copy[4]);
   $("reason-list").replaceChildren(...[i.reason].map(value => { const li=document.createElement("li"); li.textContent=value; return li; }));
   $("action-steps").replaceChildren(...i.recommendation.slice(0,3).map(value => { const li=document.createElement("li"); li.textContent=value; return li; }));
-  text("action-title",i.priority==="CRITICAL"?"Check this now":i.priority==="WARNING"?"Action recommended":"Everything looks good");
-  text("action-copy",i.status); text("action-icon",i.priority==="CRITICAL"?"⚠":i.priority==="WARNING"?"!":"✓");
+  text("action-title",i.priority==="CRITICAL"?"Check this now":i.priority==="WARNING"?"Action recommended":i.priority==="WAITING"?"Waiting for live sensors":"Everything looks good");
+  text("action-copy",i.status); text("action-icon",i.priority==="CRITICAL"?"⚠":i.priority==="WARNING"?"!":i.priority==="WAITING"?"…":"✓");
 
   text("level-value", available(s.soil_moisture, "%"));
   const quality = mqtt.quality_warnings || [];
@@ -44,7 +45,7 @@ function renderState(state) {
   text("buzzer-caption", `${i.meanings.motion} · count ${available(s.motion_count)} · Wi-Fi ${available(s.wifi_rssi," dBm")} · ${mqtt.enabled ? `${mqttState} ${updateAge}` : hardware ? "Online" : state.simulation.enabled ? "Demo" : "Offline"} · buzzer ${d.buzzer_mode}`);
   $("buzzer-wave").classList.toggle("active", d.buzzer_mode !== "OFF");
   text("source-chip", state.challenge?.active ? "Challenge Lab" : mqtt.enabled ? `MQTT ${mqttState || "OFFLINE"}` : hardware ? "Live ESP32" : state.simulation.enabled ? "Safe simulation" : "Last known data");
-  const summary=$("daily-summary"); summary.className=`event ${i.priority==="CRITICAL"?"critical":i.priority==="WARNING"?"warning":"healthy"}`; summary.querySelector("strong").textContent=`FarmGuard Says · ${i.priority}`; summary.querySelector("span").textContent=i.daily_summary;
+  const summary=$("daily-summary"); summary.className=`event ${i.priority==="CRITICAL"?"critical":["WARNING","WAITING"].includes(i.priority)?"warning":"healthy"}`; summary.querySelector("strong").textContent=`FarmGuard Says · ${i.priority}`; summary.querySelector("span").textContent=i.daily_summary;
   renderChallenge(state.challenge);
 }
 

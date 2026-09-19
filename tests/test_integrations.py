@@ -27,14 +27,16 @@ class IntegrationTests(unittest.TestCase):
         self.assertTrue(any("Soil raw" in warning for warning in warnings))
         self.assertTrue(any("Steam raw" in warning for warning in warnings))
 
-    def test_mqtt_sensor_state_uses_five_and_fifteen_second_windows(self):
+    def test_mqtt_sensor_state_and_freshness_are_clear(self):
         with patch.dict(os.environ, {"MQTT_HOST": "broker.local"}, clear=False):
             bridge = MQTTBridge(lambda payload, topic: {}, MySQLMirror())
         bridge.connected = True
         bridge.last_sensor_monotonic = time.monotonic() - 2
-        self.assertEqual(bridge.status()["sensor_state"], "LIVE")
+        self.assertEqual(bridge.status()["sensor_state"], "ONLINE")
+        self.assertEqual(bridge.status()["data_freshness"], "FRESH")
         bridge.last_sensor_monotonic = time.monotonic() - 8
-        self.assertEqual(bridge.status()["sensor_state"], "STALE")
+        self.assertEqual(bridge.status()["sensor_state"], "ONLINE")
+        self.assertEqual(bridge.status()["data_freshness"], "DELAYED")
         bridge.last_sensor_monotonic = time.monotonic() - 16
         self.assertEqual(bridge.status()["sensor_state"], "OFFLINE")
 
@@ -47,6 +49,12 @@ class IntegrationTests(unittest.TestCase):
         bridge.connected = False
         bridge.last_sensor_monotonic = time.monotonic()
         self.assertEqual(bridge.status()["sensor_state"], "OFFLINE")
+
+    def test_connected_broker_waits_for_first_real_sensor_message(self):
+        with patch.dict(os.environ, {"MQTT_HOST":"127.0.0.1"}, clear=True):
+            bridge = MQTTBridge(lambda payload, topic: {}, MySQLMirror())
+        bridge.connected = True
+        self.assertEqual(bridge.status()["sensor_state"], "WAITING FOR SENSOR DATA")
 
     def test_mysql_configuration_status_masks_secret(self):
         env = {"DB_HOST": "db.local", "DB_NAME": "farm", "DB_USER": "worker", "DB_PASSWORD": "top-secret"}

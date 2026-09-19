@@ -155,10 +155,16 @@ class MQTTBridge:
 
     def status(self) -> dict[str,Any]:
         age=round(time.monotonic()-self.last_sensor_monotonic,1) if self.last_sensor_monotonic is not None else None
-        sensor_state="OFFLINE" if not self.connected or age is None or age>15 else "STALE" if age>5 else "LIVE"
+        if not self.connected:
+            sensor_state="OFFLINE"
+        elif age is None:
+            sensor_state="WAITING FOR SENSOR DATA"
+        else:
+            sensor_state="ONLINE" if age<=15 else "OFFLINE"
+        freshness="WAITING" if age is None else "FRESH" if age<=5 else "DELAYED" if age<=15 else "EXPIRED"
         return {"enabled":self.enabled,"connected":self.connected,"host":self.host or None,"port":self.port,
                 "topics":list(self.topics),"sensor_topic":self.sensor_topic,"status_topic":self.status_topic,
-                "sensor_state":sensor_state,"last_sensor_message_at":self.last_sensor_message_at,"sensor_age_seconds":age,
+                "sensor_state":sensor_state,"data_freshness":freshness,"last_sensor_message_at":self.last_sensor_message_at,"sensor_age_seconds":age,
                 "quality_warnings":list(self.quality_warnings),"messages_received":self.received,"messages_rejected":self.rejected,"last_error":self.last_error}
 
 

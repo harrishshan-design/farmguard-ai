@@ -38,7 +38,7 @@ Open:
 - Integrator Console: <http://127.0.0.1:7862/integrator>
 - Interactive API docs: <http://127.0.0.1:7862/api/docs>
 
-Simulation starts automatically, so both dashboards remain demonstrable before hardware is connected. The first valid ESP32 packet switches the system to live data.
+Normal startup waits for genuine MQTT or HTTP sensor data and never creates fake readings. Simulation remains available as an explicit Integrator Console demo control, and Challenge Lab remains isolated from stored live telemetry.
 
 ## Owner AI guide and Challenge Lab
 
@@ -184,7 +184,7 @@ Validated MQTT readings remain in SQLite and are also mirrored into MySQL table 
 
 Connection state is visible in the Integrator Console and through `GET /api/integrations/status`. The supplied servers must be reachable from the FarmGuard computer; devices on different subnets may require the correct Wi-Fi, a router route, or a VPN.
 
-The UI labels the sensor feed **LIVE** for samples no older than 5 seconds, **STALE** from over 5 through 15 seconds, and **OFFLINE** after 15 seconds or whenever the MQTT client is disconnected. A zero soil raw value, zero steam raw value, zero water raw value, or a sharp water-raw drop is shown as a quality warning; the original reading is retained and never silently replaced.
+The UI shows **ONLINE** while validated readings remain current, **WAITING FOR SENSOR DATA** when MQTT is connected but no valid sample has arrived, and **OFFLINE** when MQTT is disconnected or the last sample is over 15 seconds old. The last genuine reading is retained during an outage and clearly marked offline; it is never replaced by generated data. A zero soil raw value, zero steam raw value, zero water raw value, or a sharp water-raw drop is shown as a quality warning; the original reading is retained and never silently replaced.
 
 ## Tests
 

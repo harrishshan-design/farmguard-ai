@@ -73,7 +73,7 @@
           <article id="testing" class="panel panel-pad span-6">
             <div class="section-head"><div><h2>Bench test</h2><p>Use simulation before wiring, then send temporary buzzer commands to a connected ESP32.</p></div></div>
             <div class="field"><label for="scenario-input">Simulation scenario</label><select id="scenario-input"><option value="healthy">Healthy farm</option><option value="low-level">Low tank / feed level</option><option value="intrusion">Animal or intruder nearby</option><option value="darkness">Unexpected daytime darkness</option><option value="night-light">Unexpected night lighting</option><option value="multi-risk">Critical combined risk</option></select></div>
-            <div class="switch-row"><div class="switch-copy"><strong>Simulation source</strong><span>Automatically turns off when valid ESP32 telemetry arrives</span></div><button id="simulation-toggle" class="toggle on" aria-label="Toggle simulation" aria-pressed="true"></button></div>
+            <div class="switch-row"><div class="switch-copy"><strong>Simulation source</strong><span>Off by default; enable only for an intentional demo</span></div><button id="simulation-toggle" class="toggle" aria-label="Toggle simulation" aria-pressed="false"></button></div>
             <div class="button-row"><button class="button" data-buzzer="OFF">Buzzer off</button><button class="button warning" data-buzzer="PULSE">Test pulse</button><button class="button danger" data-buzzer="ALARM">Test alarm</button></div>
           </article>
 

@@ -27,6 +27,15 @@ class ApiTests(unittest.TestCase):
         self.assertIn("decision", payload)
         self.assertIn(payload["decision"]["buzzer_mode"], {"OFF", "PULSE", "ALARM"})
 
+    def test_fresh_state_does_not_generate_automatic_simulation(self):
+        from app import FarmState
+        fresh = FarmState()
+        snapshot = fresh.snapshot()
+        self.assertFalse(snapshot["simulation"]["enabled"])
+        self.assertEqual(snapshot["source"], "none")
+        self.assertTrue(all(value is None for value in snapshot["sensors"].values()))
+        self.assertEqual(snapshot["decision"]["farm_health"], "WAITING")
+
     def test_invalid_device_is_rejected(self):
         response = self.client.post(
             "/api/v1/telemetry",

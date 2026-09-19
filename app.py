@@ -172,12 +172,17 @@ class FarmState:
         self.lock, self.store = threading.RLock(), EventStore(DB_PATH)
         self.config = DeviceConfig(token=os.getenv("FARMGUARD_DEVICE_TOKEN","farmguard-device-01"))
         self.challenge = ChallengeEngine()
-        self.simulation_enabled, self.scenario, self.tick = True, "healthy", 0
+        self.simulation_enabled, self.scenario, self.tick = False, "healthy", 0
         self.last_reading = self.last_sensor_reading = self.last_decision = self.last_hardware_at = None
         self.last_live_sensor_reading = self.last_live_decision = None
         self.last_sequence, self.last_signature, self.rejected_packets, self.buzzer_override = -1, None, 0, None
         self.mqtt_sequences = {}
-        self._simulate(force=True)
+
+    def _restore_live_or_waiting(self):
+        """Leave training mode without manufacturing replacement telemetry."""
+        self.simulation_enabled=False
+        self.last_sensor_reading=self.last_live_sensor_reading
+        self.last_decision=self.last_live_decision
 
     def _event_for(self, decision, source):
         signature = (decision["status"], tuple(decision["reasons"]))
@@ -282,8 +287,10 @@ class FarmState:
             age=(now-self.last_hardware_at).total_seconds() if self.last_hardware_at else None
             live_timeout=15 if self.last_live_sensor_reading and self.last_live_sensor_reading.source.startswith("mqtt:") else self.config.offline_timeout_seconds
             connected=not self.challenge.active_mode and age is not None and age<=live_timeout
-            decision=dict(self.last_decision or {})
-            if not self.simulation_enabled and not connected and not self.challenge.active_mode:
+            decision=dict(self.last_decision or {"health_score":None,"light_pct":None,"farm_health":"WAITING","status":"WAITING",
+              "severity":"warning","buzzer_mode":"OFF","reasons":["Waiting for the first valid sensor message"],
+              "actions":["Keep the MQTT tunnel running and confirm the ESP32 is publishing."]})
+            if self.last_sensor_reading and not self.simulation_enabled and not connected and not self.challenge.active_mode:
                 decision.update(health_score=25,farm_health="CRITICAL",status="ACTION",severity="critical",buzzer_mode="ALARM",
                   reasons=["The ESP32 has stopped sending sensor data"],actions=["Check ESP32 power, Wi-Fi, and the laptop LAN address."])
             decision["buzzer_mode"]=self.effective_buzzer()
@@ -359,11 +366,7 @@ def start_challenge(request:ChallengeRequest):
 def stop_challenge():
     with state.lock:
         state.challenge.stop()
-        age=(datetime.now(timezone.utc)-state.last_hardware_at).total_seconds() if state.last_hardware_at else None
-        if state.last_live_sensor_reading and age is not None and age<=15:
-            state.simulation_enabled=False; state.last_sensor_reading=state.last_live_sensor_reading; state.last_decision=state.last_live_decision
-        else:
-            state.simulation_enabled=True; state._simulate(force=True)
+        state._restore_live_or_waiting()
     return state.snapshot()
 
 @app.post("/api/challenges/reset")
@@ -403,7 +406,11 @@ def post_telemetry(packet:TelemetryPacket):
 def set_simulation(request:SimulationRequest):
     if request.scenario not in SCENARIOS: raise HTTPException(422,"Unknown scenario")
     with state.lock:
-        state.challenge.stop(); state.simulation_enabled,state.scenario=request.enabled,request.scenario; state._simulate(force=True)
+        state.challenge.stop(); state.scenario=request.scenario
+        if request.enabled:
+            state.simulation_enabled=True; state._simulate(force=True)
+        else:
+            state._restore_live_or_waiting()
     return state.snapshot(include_integrator=True)
 
 @app.post("/api/v1/integrator/buzzer-test")

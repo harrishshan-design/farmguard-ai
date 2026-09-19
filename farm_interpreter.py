@@ -23,6 +23,13 @@ def _value(value: Any, suffix: str = "") -> str:
 
 def interpret_farm(sensors: dict[str, Any], decision: dict[str, Any], language: Language = "en") -> dict[str, Any]:
     t = TEXT.get(language, TEXT["en"]); issues: list[dict[str, Any]] = []
+    if decision.get("farm_health") == "WAITING":
+        message="Waiting for live sensor data. Keep the MQTT tunnel open and confirm the ESP32 is publishing."
+        return {"priority":"WAITING","status":"Waiting for sensor data","reason":message,
+                "actions":["Check the MQTT tunnel and sensor publisher."],"recommendation":["Check the MQTT tunnel and sensor publisher."],
+                "meanings":{"soil":message,"water":message,"temperature":message,"motion":message},
+                "daily_summary":message,"response":f'Status: Waiting for sensor data\nReason: No valid live reading has arrived.\nAction: Check the MQTT tunnel and sensor publisher.',
+                "language":language,"language_name":LANGUAGE_NAMES.get(language,"English")}
     motion, water, temp, soil = sensors.get("motion"), sensors.get("water_level"), sensors.get("temperature"), sensors.get("soil_moisture")
     ignored_optional={"uptime","soil_raw","water_raw","motion_count","pump","fan","led","reservoir_state","wifi_rssi"}
     missing = [key.replace("_", " ") for key, value in sensors.items() if value is None and key not in ignored_optional]
