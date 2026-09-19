@@ -3,11 +3,11 @@ import sys
 import time
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from integration_service import IntegrationService, MQTTBridge, MySQLMirror, normalize_live_payload  # noqa: E402
+from integration_service import IntegrationService, MQTTBridge, MySQLMirror, configure_mqtt_security, normalize_live_payload  # noqa: E402
 
 
 class IntegrationTests(unittest.TestCase):
@@ -40,15 +40,37 @@ class IntegrationTests(unittest.TestCase):
         bridge.last_sensor_monotonic = time.monotonic() - 16
         self.assertEqual(bridge.status()["sensor_state"], "OFFLINE")
 
-    def test_mqtt_topic_alias_matches_tunnel_configuration(self):
-        with patch.dict(os.environ, {"MQTT_HOST":"127.0.0.1","MQTT_PORT":"1884","MQTT_TOPIC":"farmguard/sensors"}, clear=True):
+    def test_local_non_tls_configuration_remains_supported(self):
+        with patch.dict(os.environ, {"MQTT_HOST":"127.0.0.1","MQTT_PORT":"1883","MQTT_TOPIC":"farmguard/sensors","MQTT_TLS":"false"}, clear=True):
             bridge = MQTTBridge(lambda payload, topic: {}, MySQLMirror())
         self.assertEqual(bridge.host, "127.0.0.1")
-        self.assertEqual(bridge.port, 1884)
+        self.assertEqual(bridge.port, 1883)
         self.assertEqual(bridge.sensor_topic, "farmguard/sensors")
+        self.assertFalse(bridge.tls_enabled)
         bridge.connected = False
         bridge.last_sensor_monotonic = time.monotonic()
         self.assertEqual(bridge.status()["sensor_state"], "OFFLINE")
+
+    def test_emqx_tls_uses_verified_context_and_new_username_variable(self):
+        env={"MQTT_HOST":"cloud.example","MQTT_PORT":"8883","MQTT_USERNAME":"farmguard",
+             "MQTT_PASSWORD":"private","MQTT_CA_CERT":"broker-ca.pem","MQTT_TLS":"true"}
+        with patch.dict(os.environ,env,clear=True):
+            bridge=MQTTBridge(lambda payload,topic:{},MySQLMirror())
+        self.assertTrue(bridge.tls_enabled)
+        self.assertEqual(bridge.username,"farmguard")
+        status=bridge.status()
+        self.assertTrue(status["tls_enabled"])
+        self.assertEqual(status["connection_status"],"DISCONNECTED")
+        self.assertNotIn("username",status)
+        self.assertNotIn("password",status)
+        self.assertNotIn("ca_cert",status)
+
+        client=MagicMock(); context=MagicMock()
+        with patch("integration_service.ssl.create_default_context",return_value=context) as create_context:
+            configure_mqtt_security(client,tls_enabled=True,ca_cert="broker-ca.pem",username="farmguard",password="private")
+        create_context.assert_called_once_with(cafile="broker-ca.pem")
+        client.username_pw_set.assert_called_once_with("farmguard","private")
+        client.tls_set_context.assert_called_once_with(context)
 
     def test_connected_broker_waits_for_first_real_sensor_message(self):
         with patch.dict(os.environ, {"MQTT_HOST":"127.0.0.1"}, clear=True):

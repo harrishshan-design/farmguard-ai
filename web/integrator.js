@@ -34,7 +34,7 @@ function renderEvents(events) {
 }
 
 function renderIntegrations(data) {
-  text("mqtt-integration-status", data.mqtt.enabled ? `${data.mqtt.sensor_state} · ${data.mqtt.host}:${data.mqtt.port} · ${data.mqtt.sensor_topic}` : "Not configured");
+  text("mqtt-integration-status", data.mqtt.enabled ? `${data.mqtt.connection_status} · ${data.mqtt.sensor_state} · ${data.mqtt.host}:${data.mqtt.port} · ${data.mqtt.sensor_topic}` : "Not configured");
   text("mysql-integration-status", data.mysql.connected ? `Connected · ${data.mysql.database}` : data.mysql.enabled ? `Buffered ${data.mysql.buffered_readings} · retrying` : "Not configured");
 }
 

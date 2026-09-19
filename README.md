@@ -24,10 +24,13 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 $env:FARMGUARD_API_KEY = "choose-a-long-private-key"
-$env:MQTT_HOST = "127.0.0.1"
-$env:MQTT_PORT = "1884"
+$env:MQTT_HOST = "your-emqx-hostname"
+$env:MQTT_PORT = "8883"
 $env:MQTT_TOPIC = "farmguard/sensors"
 $env:MQTT_STATUS_TOPIC = "farmguard/status"
+$env:MQTT_USERNAME = "your-mqtt-username"
+$env:MQTT_PASSWORD = "set-this-only-in-the-environment"
+$env:MQTT_TLS = "true"
 $env:PORT = "7862"
 python app.py
 ```
@@ -133,7 +136,7 @@ The API key is read only from `FARMGUARD_API_KEY`; it is deliberately never retu
 
 ## Live MQTT and MySQL integration
 
-FarmGuard subscribes to the deployed ESP32 topics `farmguard/sensors` and `farmguard/status`. Legacy `/test`, `/verify`, and `/broadcast` subscriptions remain for backward compatibility. The listener runs in Paho MQTT's background network loop, reconnects automatically, parses JSON safely, validates it with the same `SensorPacket`, and passes accepted readings through the existing risk engine, interpreter, alerts, SQLite history, and optional MySQL mirror.
+FarmGuard connects directly to EMQX Cloud using verified MQTT TLS, then subscribes to the deployed ESP32 topics `farmguard/sensors` and `farmguard/status`. Legacy `/test`, `/verify`, and `/broadcast` subscriptions remain for backward compatibility. The listener runs in Paho MQTT's background network loop, reconnects with bounded backoff, parses JSON safely, validates it with the same `SensorPacket`, and passes accepted readings through the existing risk engine, interpreter, alerts, SQLite history, and optional MySQL mirror. No SSH tunnel or port forwarding is required for cloud MQTT.
 
 The deployed payload is accepted directly:
 
@@ -165,24 +168,35 @@ FarmGuard maps `temp_c`, `humidity_pct`, `distance_cm`, and `motion_now` to its 
 Copy `.env.example` to `.env` and fill in the real values locally:
 
 ```dotenv
-MQTT_HOST=127.0.0.1
-MQTT_PORT=1884
+MQTT_HOST=your-emqx-hostname
+MQTT_PORT=8883
 MQTT_TOPIC=farmguard/sensors
 MQTT_STATUS_TOPIC=farmguard/status
+MQTT_USERNAME=your-mqtt-username
+MQTT_PASSWORD=your-private-mqtt-password
+MQTT_CA_CERT=
+MQTT_TLS=true
 DB_HOST=192.168.98.50
 DB_PORT=3306
 DB_NAME="your database name"
 DB_USER="your database user"
 DB_PASSWORD="your private password"
-RASPBERRY_PI_HOST=192.168.200.11
 PORT=7862
 ```
 
-The real `.env` is ignored by Git. Credentials are never returned by the API or displayed in the dashboard.
+The real `.env` is ignored by Git. Credentials and certificate paths are never returned by the API or displayed in the dashboard. Leave `MQTT_CA_CERT` empty to use the operating system's trusted CA store, or set it to the local path of the CA certificate supplied by the broker. Certificate verification and hostname checking remain enabled in both cases.
+
+To test EMQX independently from the dashboard:
+
+```powershell
+.\.venv\Scripts\python.exe test_emqx.py
+```
+
+For an intentional local broker fallback, set `MQTT_TLS=false`, use its local hostname and port (commonly `127.0.0.1:1883`), and keep the same topics. `MQTT_USER` remains accepted as a legacy alias for `MQTT_USERNAME`.
 
 Validated MQTT readings remain in SQLite and are also mirrored into MySQL table `sensor_values` as `device_id`, `sensor`, `sensor_value`, and `created_at`. If MySQL is unavailable, up to 500 readings are buffered in memory and synchronized after a later successful connection. The dashboard continues operating throughout an MQTT or MySQL outage.
 
-Connection state is visible in the Integrator Console and through `GET /api/integrations/status`. The supplied servers must be reachable from the FarmGuard computer; devices on different subnets may require the correct Wi-Fi, a router route, or a VPN.
+Connection state is visible in the Integrator Console and through `GET /api/integrations/status` as **CONNECTED**, **RECONNECTING**, or **DISCONNECTED**. Sensor state remains independently visible as **ONLINE**, **WAITING FOR SENSOR DATA**, or **OFFLINE**.
 
 The UI shows **ONLINE** while validated readings remain current, **WAITING FOR SENSOR DATA** when MQTT is connected but no valid sample has arrived, and **OFFLINE** when MQTT is disconnected or the last sample is over 15 seconds old. The last genuine reading is retained during an outage and clearly marked offline; it is never replaced by generated data. A zero soil raw value, zero steam raw value, zero water raw value, or a sharp water-raw drop is shown as a quality warning; the original reading is retained and never silently replaced.
 
@@ -197,6 +211,8 @@ python -m unittest discover -s tests -v
 ```text
 app.py                 FastAPI API, SQLite storage, polling data contracts
 farmguard_engine.py    Sensor-fusion rules and simulation scenarios
+integration_service.py MQTT TLS, reconnect handling, and optional MySQL mirror
+test_emqx.py           Standalone environment-driven EMQX subscriber
 esp32_example.ino      Arduino IDE 1.8.19 seven-sensor firmware
 web/                   Existing owner and integrator dashboard interface
 tests/                 Engine and API tests

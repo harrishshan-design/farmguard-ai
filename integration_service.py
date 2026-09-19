@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import ssl
 import threading
 import time
 from datetime import datetime, timezone
@@ -20,6 +21,23 @@ try:
     import paho.mqtt.client as mqtt
 except ImportError:  # pragma: no cover - optional dependency guard
     mqtt = None
+
+
+def env_flag(name:str, default:bool=False) -> bool:
+    value=os.getenv(name)
+    return default if value is None else value.strip().lower() in {"1","true","yes","on"}
+
+
+def configure_mqtt_security(client, *, tls_enabled:bool, ca_cert:str|None,
+                            username:str|None, password:str|None) -> None:
+    """Apply authentication and verified TLS without exposing secret values."""
+    if username:
+        client.username_pw_set(username,password)
+    if tls_enabled:
+        context=ssl.create_default_context(cafile=ca_cert or None)
+        context.check_hostname=True
+        context.verify_mode=ssl.CERT_REQUIRED
+        client.tls_set_context(context)
 
 
 def normalize_live_payload(payload:dict[str,Any], sequence:int) -> tuple[dict[str,Any],list[str]]:
@@ -90,40 +108,62 @@ class MySQLMirror:
 
 class MQTTBridge:
     def __init__(self, handler:Callable[[dict[str,Any],str],dict[str,Any]], mysql_mirror:MySQLMirror) -> None:
-        self.host=os.getenv("MQTT_HOST",""); self.port=int(os.getenv("MQTT_PORT","1883")); self.username=os.getenv("MQTT_USER")
-        self.password=os.getenv("MQTT_PASSWORD"); self.enabled=bool(self.host); self.connected=False; self.last_error=None
+        self.host=os.getenv("MQTT_HOST",""); self.port=int(os.getenv("MQTT_PORT","1883"))
+        self.username=os.getenv("MQTT_USERNAME") or os.getenv("MQTT_USER"); self.password=os.getenv("MQTT_PASSWORD")
+        self.tls_enabled=env_flag("MQTT_TLS"); self.ca_cert=os.getenv("MQTT_CA_CERT") or None
+        self.enabled=bool(self.host); self.connected=False; self.connection_status="DISCONNECTED"; self.last_error=None
         self.received=0; self.rejected=0; self.handler=handler; self.mysql=mysql_mirror; self.client=None
         self.sensor_topic=os.getenv("MQTT_SENSOR_TOPIC") or os.getenv("MQTT_TOPIC","farmguard/sensors"); self.status_topic=os.getenv("MQTT_STATUS_TOPIC","farmguard/status")
         self.topics=(self.sensor_topic,self.status_topic,"/test","/verify","/broadcast")
         self.latest_payload=None; self.latest_status=None; self.last_sensor_monotonic=None; self.last_sensor_message_at=None
-        self.quality_warnings=[]; self.previous_water_raw=None; self.logged_first_payload=False
+        self.quality_warnings=[]; self.previous_water_raw=None; self.logged_first_payload=False; self._stopping=False
 
     def start(self) -> None:
         if not self.enabled or mqtt is None:
             if self.enabled and mqtt is None: self.last_error="paho-mqtt is not installed"
             return
         try:
+            self._stopping=False; self.connection_status="RECONNECTING"
+            print("MQTT: Connecting to EMQX Cloud..." if self.tls_enabled else f"MQTT: Connecting to {self.host}:{self.port}...")
             self.client=mqtt.Client(mqtt.CallbackAPIVersion.VERSION2,client_id="farmguard-python-backend")
-            if self.username: self.client.username_pw_set(self.username,self.password)
-            self.client.on_connect=self._on_connect; self.client.on_disconnect=self._on_disconnect; self.client.on_message=self._on_message
+            configure_mqtt_security(self.client,tls_enabled=self.tls_enabled,ca_cert=self.ca_cert,
+                                    username=self.username,password=self.password)
+            if self.tls_enabled: print("MQTT: TLS enabled")
+            self.client.reconnect_delay_set(min_delay=1,max_delay=30)
+            self.client.on_connect=self._on_connect; self.client.on_connect_fail=self._on_connect_fail
+            self.client.on_disconnect=self._on_disconnect; self.client.on_message=self._on_message
             self.client.connect_async(self.host,self.port,30); self.client.loop_start()
-        except Exception as error: self.last_error=str(error)[:180]
+        except Exception as error:
+            self.connection_status="DISCONNECTED"; self.last_error=str(error)[:180]
+            print(f"MQTT: Connection setup failed — {self.last_error}")
 
     def stop(self) -> None:
         if self.client:
-            try: self.client.loop_stop(); self.client.disconnect()
+            try:
+                self._stopping=True; self.client.disconnect(); self.client.loop_stop()
             except Exception: pass
+        self.connected=False; self.connection_status="DISCONNECTED"
 
     def _on_connect(self,client,userdata,flags,reason_code,properties):
         self.connected=reason_code==0; self.last_error=None if self.connected else f"MQTT connect code {reason_code}"
         if self.connected:
-            for topic in self.topics: client.subscribe(topic,qos=1)
-            print(f"FarmGuard MQTT connected to {self.host}:{self.port}; subscribed to {self.sensor_topic} and {self.status_topic}")
+            self.connection_status="CONNECTED"; print("MQTT: Connected")
+            for topic in dict.fromkeys(self.topics):
+                client.subscribe(topic,qos=1); print(f"MQTT: Subscribed to {topic}")
+        else:
+            self.connection_status="RECONNECTING"
+
+    def _on_connect_fail(self,client,userdata):
+        self.connected=False; self.connection_status="RECONNECTING"; self.last_error="MQTT connection attempt failed"
+        print("MQTT: Connection attempt failed — reconnecting")
 
     def _on_disconnect(self,client,userdata,disconnect_flags,reason_code,properties):
         self.connected=False
         if reason_code: self.last_error=f"MQTT disconnected: {reason_code}"
-        print(f"FarmGuard MQTT disconnected (code {reason_code}); dashboard remains available")
+        if self._stopping:
+            self.connection_status="DISCONNECTED"
+        else:
+            self.connection_status="RECONNECTING"; print("MQTT: Connection lost — reconnecting")
 
     def _on_message(self,client,userdata,message):
         try:
@@ -162,7 +202,8 @@ class MQTTBridge:
         else:
             sensor_state="ONLINE" if age<=15 else "OFFLINE"
         freshness="WAITING" if age is None else "FRESH" if age<=5 else "DELAYED" if age<=15 else "EXPIRED"
-        return {"enabled":self.enabled,"connected":self.connected,"host":self.host or None,"port":self.port,
+        return {"enabled":self.enabled,"connected":self.connected,"connection_status":self.connection_status,
+                "tls_enabled":self.tls_enabled,"host":self.host or None,"port":self.port,
                 "topics":list(self.topics),"sensor_topic":self.sensor_topic,"status_topic":self.status_topic,
                 "sensor_state":sensor_state,"data_freshness":freshness,"last_sensor_message_at":self.last_sensor_message_at,"sensor_age_seconds":age,
                 "quality_warnings":list(self.quality_warnings),"messages_received":self.received,"messages_rejected":self.rejected,"last_error":self.last_error}
