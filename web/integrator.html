@@ -31,21 +31,22 @@
         </article>
 
         <div class="metric-strip">
-          <div class="mini-metric"><span>Distance</span><strong id="raw-distance">—</strong></div><div class="mini-metric"><span>LDR raw</span><strong id="raw-light">—</strong></div><div class="mini-metric"><span>Health</span><strong id="raw-health">—</strong></div><div class="mini-metric"><span>Buzzer command</span><strong id="raw-buzzer">—</strong></div><div class="mini-metric"><span>Sequence</span><strong id="raw-sequence">—</strong></div>
+          <div class="mini-metric"><span>Soil</span><strong id="raw-distance">—</strong></div><div class="mini-metric"><span>Temperature</span><strong id="raw-light">—</strong></div><div class="mini-metric"><span>Health</span><strong id="raw-health">—</strong></div><div class="mini-metric"><span>Buzzer command</span><strong id="raw-buzzer">—</strong></div><div class="mini-metric"><span>Sequence</span><strong id="raw-sequence">—</strong></div>
         </div>
 
         <div class="dev-grid">
           <article id="connect" class="panel panel-pad span-7">
             <div class="section-head"><div><h2>Connect the ESP32</h2><p>Copy these values into the included firmware, then upload it from Arduino IDE.</p></div><span id="trust-chip" class="chip">Waiting for device</span></div>
-            <div class="form-grid"><div class="field"><label>Telemetry endpoint</label><input id="endpoint-value" readonly></div><div class="field"><label>Device ID</label><input id="device-id-value" readonly></div><div class="field full"><label>Device token</label><input id="token-value" readonly></div></div>
-            <div class="button-row"><button class="button primary" data-copy="endpoint-value">Copy endpoint</button><button class="button" data-copy="device-id-value">Copy device ID</button><button class="button" data-copy="token-value">Copy token</button></div>
+            <div class="form-grid"><div class="field"><label>Telemetry endpoint</label><input id="endpoint-value" readonly></div><div class="field"><label>Device ID</label><input id="device-id-value" readonly></div><div class="field full"><label>Authentication</label><input id="token-value" value="X-API-Key configured in server environment" readonly></div></div>
+            <div class="button-row"><button class="button primary" data-copy="endpoint-value">Copy endpoint</button><button class="button" data-copy="device-id-value">Copy device ID</button><button class="button" data-copy="token-value">Copy header name</button></div>
+            <div class="wiring" style="margin-top:18px"><div class="wire"><span>MQTT gateway</span><strong id="mqtt-integration-status">Checking…</strong></div><div class="wire"><span>MySQL mirror</span><strong id="mysql-integration-status">Checking…</strong></div><div class="wire"><span>MQTT topics</span><strong>farmguard/sensors · farmguard/status</strong></div><div class="wire"><span>Local fallback</span><strong>HTTP + SQLite active</strong></div></div>
             <div class="section-head" style="margin-top:24px"><div><h3>Expected JSON payload</h3></div></div>
-            <div class="code-block"><button class="button small copy-button" data-copy="payload-code">Copy</button><code id="payload-code">{"device_id":"esp32-farm-01","token":"...","sequence":1,"distance_cm":45.2,"light_raw":2580}</code></div>
+            <div class="code-block"><button class="button small copy-button" data-copy="payload-code">Copy</button><code id="payload-code">{"device_id":"esp32-farm-01","sequence":1,"soil_moisture":62,"temperature":29,"humidity":66,"light":2580,"steam":420,"motion":false,"water_level":72,"ultrasonic_distance":28.4,"uptime":120}</code></div>
           </article>
 
           <article class="panel panel-pad span-5">
             <div class="section-head"><div><h2>Recommended wiring</h2><p>Defaults used by the supplied ESP32 firmware</p></div></div>
-            <div class="wiring"><div class="wire"><span>HC-SR04 trigger</span><strong>GPIO 5</strong></div><div class="wire"><span>HC-SR04 echo</span><strong>GPIO 18*</strong></div><div class="wire"><span>LDR analog</span><strong>GPIO 34</strong></div><div class="wire"><span>Passive buzzer</span><strong>GPIO 25</strong></div><div class="wire"><span>Sensor power</span><strong>5V / 3V3</strong></div><div class="wire"><span>Common ground</span><strong>GND</strong></div></div>
+            <div class="wiring"><div class="wire"><span>HC-SR04 trigger / echo</span><strong>GPIO 23 / 22*</strong></div><div class="wire"><span>LDR / steam ADC</span><strong>GPIO 34 / 35</strong></div><div class="wire"><span>Soil / water ADC</span><strong>GPIO 32 / 33</strong></div><div class="wire"><span>Temperature-humidity / PIR</span><strong>GPIO 27 / 26</strong></div><div class="wire"><span>Passive buzzer</span><strong>GPIO 25</strong></div><div class="wire"><span>Common ground</span><strong>GND</strong></div></div>
             <p class="fg-muted" style="font-size:.76rem;line-height:1.5;margin:14px 0 0">* Use a voltage divider on a 5 V HC-SR04 echo line before connecting it to the 3.3 V ESP32 input.</p>
           </article>
 
@@ -59,6 +60,12 @@
               <div class="field"><label for="level-critical-input">Level critical (%)</label><input id="level-critical-input" type="number" min="1" max="80"></div>
               <div class="field"><label for="near-warning-input">Proximity warning (cm)</label><input id="near-warning-input" type="number" min="5" max="200"></div>
               <div class="field"><label for="near-critical-input">Proximity critical (cm)</label><input id="near-critical-input" type="number" min="2" max="100"></div>
+              <div class="field"><label for="soil-low-input">Soil low (%)</label><input id="soil-low-input" type="number" min="0" max="100"></div>
+              <div class="field"><label for="temp-high-input">Temperature high (°C)</label><input id="temp-high-input" type="number" min="-20" max="80"></div>
+              <div class="field"><label for="humidity-low-input">Humidity low (%)</label><input id="humidity-low-input" type="number" min="0" max="100"></div>
+              <div class="field"><label for="water-low-input">Water low (%)</label><input id="water-low-input" type="number" min="0" max="100"></div>
+              <div class="field"><label for="steam-high-input">Steam high (raw)</label><input id="steam-high-input" type="number" min="0" max="4095"></div>
+              <div class="field"><label for="offline-input">Offline timeout (seconds)</label><input id="offline-input" type="number" min="20" max="300"></div>
               <div class="field full"><button class="button primary" type="submit">Apply calibration</button></div>
             </form>
           </article>
@@ -72,7 +79,7 @@
 
           <article id="telemetry" class="panel panel-pad span-8">
             <div class="section-head"><div><h2>Raw telemetry stream</h2><p>Newest accepted readings from SQLite</p></div><a class="button small" href="/api/v1/export/readings.csv">Export CSV</a></div>
-            <div class="table-wrap"><table class="data-table"><thead><tr><th>Time</th><th>Source</th><th>Distance</th><th>LDR raw</th><th>Level</th><th>Light</th><th>Health</th><th>Buzzer</th></tr></thead><tbody id="telemetry-body"></tbody></table></div>
+            <div class="table-wrap"><table class="data-table"><thead><tr><th>Time</th><th>Source</th><th>Soil</th><th>Soil raw</th><th>Temp</th><th>Humidity</th><th>Light</th><th>Steam</th><th>Motion</th><th>Count</th><th>Water</th><th>Distance</th><th>Pump</th><th>Fan</th><th>LED</th><th>Reservoir</th><th>Wi-Fi</th><th>Health</th><th>Buzzer</th></tr></thead><tbody id="telemetry-body"></tbody></table></div>
           </article>
           <article class="panel panel-pad span-4">
             <div class="section-head"><div><h2>Evidence log</h2><p>State changes and security events</p></div><a class="button small" href="/api/v1/export/events.csv">CSV</a></div><div id="integrator-events" class="event-list"></div>

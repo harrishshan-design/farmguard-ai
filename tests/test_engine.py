@@ -7,7 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from farmguard_engine import DeviceConfig, SensorReading, evaluate, simulated_reading  # noqa: E402
+from farmguard_engine import DeviceConfig, FarmSensorReading, SensorReading, evaluate, evaluate_farm, simulated_reading  # noqa: E402
 
 
 NOW = datetime(2026, 9, 19, 4, 0, tzinfo=timezone.utc)
@@ -48,6 +48,16 @@ class SensorFusionTests(unittest.TestCase):
         first = simulated_reading("healthy", config, 4, NOW)
         second = simulated_reading("healthy", config, 4, NOW)
         self.assertEqual(first, second)
+
+    def test_missing_farm_sensors_are_not_treated_as_zero(self):
+        reading = FarmSensorReading("node", 1, NOW, motion=False)
+        result = evaluate_farm(reading, DeviceConfig())
+        self.assertEqual(result["farm_health"], "NORMAL")
+
+    def test_combined_dry_hot_condition_recommends_irrigation(self):
+        reading = FarmSensorReading("node", 1, NOW, soil_moisture=12, temperature=39, water_level=80)
+        result = evaluate_farm(reading, DeviceConfig())
+        self.assertTrue(any("Irrigation is recommended" in action for action in result["actions"]))
 
 
 if __name__ == "__main__":

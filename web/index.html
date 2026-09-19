@@ -32,13 +32,14 @@
         <div class="hero-copy">
           <span id="status-chip" class="eyebrow">Farm is good</span>
           <h1 id="status-title">Everything looks healthy.</h1>
-          <p id="status-summary">FarmGuard is checking water or feed level, surrounding movement, daylight conditions, and the local warning buzzer.</p>
+          <p id="status-summary">FarmGuard is combining soil, climate, water, and security readings into one farm decision.</p>
           <ul id="reason-list" class="reason-list"><li>All monitored conditions are inside the configured safe range</li></ul>
         </div>
       </article>
 
       <aside class="panel action-panel">
         <div>
+          <div class="label">Today's Recommendation</div>
           <div id="action-icon" class="action-icon">✓</div>
           <h2 id="action-title">No action needed</h2>
           <p id="action-copy">You can continue normal farm work. FarmGuard will alert you when something changes.</p>
@@ -48,30 +49,68 @@
 
       <div class="sensor-grid">
         <article class="panel sensor-card">
-          <div class="label">Water / feed level</div><div id="level-value" class="value">55%</div><div class="caption">Estimated from ultrasonic mounting height</div>
+          <div class="label">Soil moisture</div><div id="level-value" class="value">—</div><div id="soil-caption" class="caption">Sensor unavailable</div>
           <div class="tank" aria-hidden="true"><div id="tank-fill" class="tank-fill" style="height:55%"></div></div>
         </article>
         <article class="panel sensor-card">
-          <div class="label">Ambient light</div><div id="light-value" class="value">63%</div><div id="light-caption" class="caption">Normal daylight conditions</div><div class="light-orb" aria-hidden="true"></div>
+          <div class="label">Environment</div><div id="light-value" class="value">—</div><div id="light-caption" class="caption">Temperature · humidity · light · steam</div><div class="light-orb" aria-hidden="true"></div>
         </article>
         <article class="panel sensor-card">
-          <div class="label">Nearby movement</div><div id="proximity-value" class="value">63%</div><div id="proximity-caption" class="caption">Proximity signal, interpreted by installation mode</div>
+          <div class="label">Water</div><div id="proximity-value" class="value">—</div><div id="proximity-caption" class="caption">Water level · ultrasonic distance</div>
           <div class="radar" aria-hidden="true"><div id="radar-dot" class="radar-dot" style="--risk:63"></div></div>
         </article>
         <article class="panel sensor-card">
-          <div class="label">Local farm alarm</div><div id="buzzer-value" class="value">OFF</div><div id="buzzer-caption" class="caption">Silent — no warning needed</div>
+          <div class="label">Security &amp; device</div><div id="buzzer-value" class="value">—</div><div id="buzzer-caption" class="caption">Waiting for sensor data</div>
           <div id="buzzer-wave" class="buzzer-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
         </article>
       </div>
 
       <div class="owner-lower">
         <article class="panel chart-panel">
-          <div class="section-head"><div><h2>Farm trend</h2><p>Health, level, and light over recent readings</p></div><span id="source-chip" class="chip">Simulation</span></div>
+          <div class="section-head"><div><h2>Farm trend</h2><p>Health, soil moisture, and water level over recent readings</p></div><span id="source-chip" class="chip">Simulation</span></div>
           <div class="chart-wrap"><canvas id="trend-chart" aria-label="Farm health trend chart"></canvas></div>
         </article>
         <article class="panel timeline">
           <div class="section-head"><div><h2>What happened</h2><p>Important changes only</p></div></div>
           <div id="event-list" class="event-list"><div class="event"><div class="event-dot"></div><div><strong>Starting FarmGuard</strong><span>Waiting for current readings</span></div></div></div>
+        </article>
+      </div>
+
+      <div class="owner-lower">
+        <article class="panel chart-panel" id="challenge-lab">
+          <div class="section-head"><div><h2>Challenge Lab</h2><p>Safe training scenarios — real readings and records stay protected</p></div><span id="challenge-status" class="chip">Stopped</span></div>
+          <div class="form-grid">
+            <div class="field full"><label for="challenge-mode">Choose a challenge</label><select id="challenge-mode"><option value="database-security">Database &amp; Security</option><option value="sensor-crazy">Sensor Gone Crazy</option><option value="alien-attack">Alien Attack</option><option value="water-crisis">Water Crisis</option><option value="sensor-failure">Sensor Failure</option><option value="fun-box">Fun Box</option><option value="perfect-storm">Final Boss: Perfect Storm</option></select></div>
+          </div>
+          <div class="button-row"><button id="challenge-start" class="button primary">Start challenge</button><button id="challenge-reset" class="button">Reset</button><button id="challenge-stop" class="button danger">Stop</button></div>
+          <div id="challenge-summary" class="code-block" style="margin-top:16px"><code>Choose a challenge to begin.</code></div>
+          <div id="fun-box-controls" hidden>
+            <div class="section-head" style="margin-top:18px"><div><h3>Fun Box controls</h3><p>Move values, then apply them to the same risk engine.</p></div></div>
+            <div class="form-grid">
+              <div class="field"><label>Temperature °C<input id="fun-temperature" type="number" value="29" min="-40" max="100"></label></div>
+              <div class="field"><label>Humidity %<input id="fun-humidity" type="number" value="66" min="0" max="100"></label></div>
+              <div class="field"><label>Soil moisture %<input id="fun-soil" type="number" value="62" min="0" max="100"></label></div>
+              <div class="field"><label>Light raw<input id="fun-light" type="number" value="2580" min="0" max="4095"></label></div>
+              <div class="field"><label>Distance cm<input id="fun-distance" type="number" value="42" min="0" max="500"></label></div>
+              <div class="field"><label>Steam/rain raw<input id="fun-steam" type="number" value="420" min="0" max="4095"></label></div>
+              <div class="field"><label>Water level %<input id="fun-water" type="number" value="72" min="0" max="100"></label></div>
+              <div class="field"><label>PIR motion<select id="fun-motion"><option value="false">Clear</option><option value="true">Detected</option></select></label></div>
+            </div>
+            <div class="button-row"><button id="fun-apply" class="button primary">Apply values</button></div>
+            <div id="quick-scenarios" class="button-row"><button class="button small" data-scenario="HEAT WAVE">Heat wave</button><button class="button small" data-scenario="FLOOD">Flood</button><button class="button small" data-scenario="DROUGHT">Drought</button><button class="button small" data-scenario="ALIEN">Alien</button><button class="button small" data-scenario="ANIMAL">Animal</button><button class="button small" data-scenario="NIGHT">Night</button><button class="button small" data-scenario="BREAK SENSOR">Break sensor</button><button class="button small" data-scenario="RANDOM CHAOS">Random chaos</button></div>
+          </div>
+        </article>
+
+        <article class="panel timeline" id="farm-guide">
+          <div class="section-head"><div><h2>🌱 Ask FarmGuard</h2><p>An intelligent farm worker beside your dashboard</p></div><span class="chip">Live sensor context</span></div>
+          <div class="label">FarmGuard Says</div>
+          <div id="daily-summary" class="event healthy"><div class="event-dot"></div><div><strong>Today's farm summary</strong><span>Reading current farm conditions…</span></div></div>
+          <div id="guide-answer" class="event healthy"><div class="event-dot"></div><div><strong>Ask a question</strong><span>Answers use only the readings shown on this dashboard.</span></div></div>
+          <div class="form-grid" style="margin-top:16px"><div class="field full"><label for="guide-language">Answer language</label><select id="guide-language"><option value="en">English</option><option value="ms">Bahasa Melayu</option><option value="ta">Tamil</option><option value="zh">Chinese</option></select></div></div>
+          <div class="field" style="margin-top:16px"><label for="guide-question">Your question</label><input id="guide-question" placeholder="Example: Do I need to water the crops?"></div>
+          <div class="button-row"><button id="guide-ask" class="button primary">Ask FarmGuard</button><button id="guide-voice" class="button" type="button" title="Voice support is prepared but not enabled yet" aria-label="Voice input coming soon">🎤 Voice soon</button></div>
+          <div class="button-row"><button class="button small guide-quick" data-question="Should I water today?">💧 Should I water?</button><button class="button small guide-quick" data-question="How much water is left?">🚰 Water left?</button><button class="button small guide-quick" data-question="Is my farm safe?">🛡️ Is my farm safe?</button><button class="button small guide-quick" data-question="How are my crops?">🌱 How are my crops?</button><button class="button small guide-quick" data-question="Are my sensors working?">🔧 Sensors working?</button><button class="button small guide-quick" data-question="What should I do today?">📋 What today?</button></div>
+          <p class="fg-muted" style="font-size:.76rem;line-height:1.5;margin:14px 0 0">Answers explain FarmGuard data only. For safety-critical farm decisions, inspect the site and equipment directly.</p>
         </article>
       </div>
     </section>
