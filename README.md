@@ -24,9 +24,9 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 $env:FARMGUARD_API_KEY = "choose-a-long-private-key"
-$env:MQTT_HOST = "192.168.98.50"
-$env:MQTT_PORT = "1883"
-$env:MQTT_SENSOR_TOPIC = "farmguard/sensors"
+$env:MQTT_HOST = "127.0.0.1"
+$env:MQTT_PORT = "1884"
+$env:MQTT_TOPIC = "farmguard/sensors"
 $env:MQTT_STATUS_TOPIC = "farmguard/status"
 $env:PORT = "7862"
 python app.py
@@ -165,9 +165,9 @@ FarmGuard maps `temp_c`, `humidity_pct`, `distance_cm`, and `motion_now` to its 
 Copy `.env.example` to `.env` and fill in the real values locally:
 
 ```dotenv
-MQTT_HOST=192.168.98.50
-MQTT_PORT=1883
-MQTT_SENSOR_TOPIC=farmguard/sensors
+MQTT_HOST=127.0.0.1
+MQTT_PORT=1884
+MQTT_TOPIC=farmguard/sensors
 MQTT_STATUS_TOPIC=farmguard/status
 DB_HOST=192.168.98.50
 DB_PORT=3306

@@ -93,7 +93,7 @@ class MQTTBridge:
         self.host=os.getenv("MQTT_HOST",""); self.port=int(os.getenv("MQTT_PORT","1883")); self.username=os.getenv("MQTT_USER")
         self.password=os.getenv("MQTT_PASSWORD"); self.enabled=bool(self.host); self.connected=False; self.last_error=None
         self.received=0; self.rejected=0; self.handler=handler; self.mysql=mysql_mirror; self.client=None
-        self.sensor_topic=os.getenv("MQTT_SENSOR_TOPIC","farmguard/sensors"); self.status_topic=os.getenv("MQTT_STATUS_TOPIC","farmguard/status")
+        self.sensor_topic=os.getenv("MQTT_SENSOR_TOPIC") or os.getenv("MQTT_TOPIC","farmguard/sensors"); self.status_topic=os.getenv("MQTT_STATUS_TOPIC","farmguard/status")
         self.topics=(self.sensor_topic,self.status_topic,"/test","/verify","/broadcast")
         self.latest_payload=None; self.latest_status=None; self.last_sensor_monotonic=None; self.last_sensor_message_at=None
         self.quality_warnings=[]; self.previous_water_raw=None; self.logged_first_payload=False

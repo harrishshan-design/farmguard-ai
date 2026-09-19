@@ -37,6 +37,13 @@ class IntegrationTests(unittest.TestCase):
         self.assertEqual(bridge.status()["sensor_state"], "STALE")
         bridge.last_sensor_monotonic = time.monotonic() - 16
         self.assertEqual(bridge.status()["sensor_state"], "OFFLINE")
+
+    def test_mqtt_topic_alias_matches_tunnel_configuration(self):
+        with patch.dict(os.environ, {"MQTT_HOST":"127.0.0.1","MQTT_PORT":"1884","MQTT_TOPIC":"farmguard/sensors"}, clear=True):
+            bridge = MQTTBridge(lambda payload, topic: {}, MySQLMirror())
+        self.assertEqual(bridge.host, "127.0.0.1")
+        self.assertEqual(bridge.port, 1884)
+        self.assertEqual(bridge.sensor_topic, "farmguard/sensors")
         bridge.connected = False
         bridge.last_sensor_monotonic = time.monotonic()
         self.assertEqual(bridge.status()["sensor_state"], "OFFLINE")
